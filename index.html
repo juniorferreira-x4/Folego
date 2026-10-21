@@ -373,6 +373,12 @@ input,select{background:var(--surface-2);border:1px solid var(--field-line);bord
   .g5.h{grid-template-rows:auto}
   .g5-v{font-size:.88rem} .g5-p{font-size:.92rem}
 }
+.cal-big .cal-c.past{min-height:68px;background:var(--surface-2);opacity:1;color:var(--muted);cursor:pointer}
+.cal-big .cal-c.past .cal-v{color:var(--muted)}
+.cal-big .cal-c.past.sel{background:var(--accent-soft);outline:2px solid var(--accent);outline-offset:-2px}
+button.cal-c.past{appearance:none;border:0;font:inherit;text-align:left;width:100%}
+.mini-c.tem{position:relative}
+.mini-c.tem::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}
 [hidden]{display:none!important}
 img{max-width:100%}
 .auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:16px}
@@ -1793,7 +1799,7 @@ function statusLinha(M){
   return txt+` Saldo hoje ${brl0(M.saldo)}, piso ${brl0(M.piso)}.`;
 }
 function diaSel(M){
-  if(ui.dia!=null)return Math.min(Math.max(ui.dia,0),M.P.H);
+  if(ui.dia!=null)return Math.min(Math.max(ui.dia,-62),M.P.H);
   const a=M.A.base;
   return a.belowIdx>=0?a.belowIdx:(a.negIdx>=0?a.negIdx:0);
 }
@@ -1805,41 +1811,61 @@ function secCalendario(M){
     const dias=[];let min=Infinity;
     for(let day=1;day<=nd;day++){
       const dt=new Date(first.getFullYear(),first.getMonth(),day,12),i=Math.round((dt.getTime()-t.getTime())/86400000);
-      if(i<0||i>=ser.length){dias.push({day,past:true});continue;}
+      const di=iso(dt),nr=realDoDia(di).length;
+      if(i<0){dias.push({day,i,dt,past:true,v:saldoFimDia(M,di),n:nr});continue;}
+      if(i>=ser.length){dias.push({day,out:true});continue;}
       const v=ser[i];min=Math.min(min,v);
-      dias.push({day,i,v,dt,c:v<0?'neg':(v<M.piso?'low':'ok'),n:M.P.days[i].ev.filter(e=>!e.virtual).length});
+      dias.push({day,i,v,dt,c:v<0?'neg':(v<M.piso?'low':'ok'),n:M.P.days[i].ev.filter(e=>!e.virtual).length+(i===0?nr:0)});
     }
     return {first,dias,min,nome:MESES[first.getMonth()]+' '+first.getFullYear()};
   };
   const m0=mes(0);
   let cells='';for(let z=0;z<m0.first.getDay();z++)cells+='<div class="cal-c off"></div>';
   m0.dias.forEach(d=>{
-    if(d.past){cells+=`<div class="cal-c past"><span class="cal-d">${d.day}</span></div>`;return;}
+    if(d.out){cells+=`<div class="cal-c off"><span class="cal-d">${d.day}</span></div>`;return;}
+    if(d.past){const dots=Array.from({length:Math.min(4,d.n)},()=>'<i></i>').join('');cells+=`<button class="cal-c past${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo no fim do dia '+brl0(d.v))}"><span class="cal-d">${d.day}</span><span class="cal-v">${kc(d.v)}</span><span class="cal-dots">${dots}</span></button>`;return;}
     const dots=Array.from({length:Math.min(4,d.n)},()=>'<i></i>').join('');
     cells+=`<button class="cal-c ${d.c}${d.i===0?' today':''}${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v))}"><span class="cal-d">${d.day}</span><span class="cal-v">${kc(d.v)}</span><span class="cal-dots">${dots}</span></button>`;
   });
   const grande=`<div class="card cal-big"><div class="row between"><h3 style="text-transform:capitalize">${m0.nome}</h3><span class="small muted mono">${m0.min===Infinity?'':'menor saldo '+brl0(m0.min)}</span></div><div class="cal-head">${WD.map(w=>`<span>${w}</span>`).join('')}</div><div class="cal">${cells}</div></div>`;
   const mini=m=>{const x=mes(m);let c='';for(let z=0;z<x.first.getDay();z++)c+='<span class="mini-c off"></span>';
-    x.dias.forEach(d=>{c+=d.past?`<span class="mini-c off">${d.day}</span>`:`<button class="mini-c ${d.c}${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v))}">${d.day}</button>`;});
+    x.dias.forEach(d=>{c+=(d.past||d.out)?`<span class="mini-c off">${d.day}</span>`:`<button class="mini-c ${d.c}${sel===d.i?' sel':''}${d.n?' tem':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v)+(d.n?', com '+d.n+(d.n===1?' item':' itens'):''))}">${d.day}</button>`;});
     return `<div><div class="mini-m">${MESES[x.first.getMonth()]}</div><div class="mini">${c}</div><div class="mini-s">menor ${x.min===Infinity?'—':brl0(x.min)}</div></div>`;};
   const minis=`<div class="card"><h3>Próximos meses</h3><div class="minis">${mini(1)}${mini(2)}</div></div>`;
   const legenda=`<div class="legend" style="margin-top:0"><span><span class="sw" style="background:var(--good)"></span>acima do piso</span><span><span class="sw" style="background:var(--warn)"></span>abaixo do piso</span><span><span class="sw" style="background:var(--crit)"></span>saldo negativo</span><span><span class="dot" style="background:var(--accent)"></span>tem conta ou entrada no dia</span></div>`;
   return secW('calendario',secH('calendario','Calendário dos próximos 3 meses','')+
     `${guiaTopo()}<div class="cal-grid"><div class="stack">${grande}${minis}</div><div class="dia-fixo">${painelDia(M)}</div></div>${legenda}`);
 }
+function realDoDia(di){return lanc.filter(l=>l.data===di&&jaAconteceu(l));}
+function realComoEvento(l,i,dt){
+  const ent=l.tipo==='entrada',x=l.cartaoId?0:(ent?l.valor:-l.valor);
+  return {i,date:dt,kind:'lanc',id:l.id,comp:'real',nome:l.desc||'Lançamento',banco:l.banco,valor:l.valor,v:{min:x,base:x,max:x},real:true,imp:!!l.imp,cartao:!!l.cartaoId,ent};
+}
+function saldoFimDia(M,di){
+  let s=saldoAtual(S,lanc);
+  for(const l of lanc){if(!l.data||l.data<=di||!jaAconteceu(l)||l.cartaoId||!(l.ts>S.cfg.saldoTs))continue;s-=l.tipo==='entrada'?l.valor:-l.valor;}
+  return s;
+}
 function painelDia(M){
-  const i=diaSel(M),dy=M.P.days[i],v=M.P.series.base[i];
-  const evs=dy.ev.filter(e=>!e.virtual);
+  const i=diaSel(M),passado=i<0;
+  const date=passado?addDays(M.t,i):M.P.days[i].date,di=iso(date);
+  const dy=passado?null:M.P.days[i];
+  const v=passado?saldoFimDia(M,di):M.P.series.base[i];
+  const reais=(i<=0?realDoDia(di):[]).map(l=>realComoEvento(l,i,date));
+  const evs=reais.concat(passado?[]:dy.ev.filter(e=>!e.virtual));
   const cls=v<0?'crit':(v<M.piso?'warn':'good');
   const lab=v<0?'saldo negativo':(v<M.piso?'abaixo do piso':'acima do piso');
   const lin=evs.map(e=>{
-    const key=e.id+'|'+e.comp,ed=ui.evEdit===key,ent=e.v.base>0;
-    const row=`<div class="item"><div class="main"><div>${esc(e.nome)}</div><div class="small muted">${EV_TIPO[e.kind]||''}${e.banco?' · '+esc(e.banco):''}</div></div><div class="val ${ent?'in':'out'}">${ent?'+':'−'}${brl0(Math.abs(e.v.base))}</div>${ed?'':`<button class="btn small" data-act="ev-edit" data-key="${esc(key)}">Editar</button>`}</div>`;
+    const key=e.id+'|'+e.comp,ed=ui.evEdit===key,ent=e.real?e.ent:e.v.base>0;
+    const sub=e.real?(e.imp?'Importado do extrato':(e.cartao?'Compra no cartão, sai na fatura':'Lançado')):(EV_TIPO[e.kind]||'');
+    const podeEditar=!(e.real&&e.imp);
+    const row=`<div class="item"><div class="main"><div>${esc(e.nome)}</div><div class="small muted">${sub}${e.banco?' · '+esc(e.banco):''}</div></div><div class="val ${ent?'in':'out'}">${ent?'+':'−'}${brl0(Math.abs(e.real?e.valor:e.v.base))}</div>${ed||!podeEditar?'':`<button class="btn small" data-act="ev-edit" data-key="${esc(key)}">Editar</button>`}</div>`;
     return row+(ed?evForm(e):'');
   }).join('');
-  const est=Math.abs(dy.spread.base)>=1?`<div class="item"><div class="main"><div class="muted">Estimativa diluída do dia</div><div class="small muted">Gastos variáveis espalhados pelo mês</div></div><div class="val muted">${dy.spread.base>=0?'+':'−'}${brl0(Math.abs(dy.spread.base))}</div></div>`:'';
-  return `<div class="card dia-card"><div class="row between"><h3>${fLong(dy.date)}${i===0?' (hoje)':''}</h3><span class="pill ${cls}">${lab}</span></div>
-    <div class="list">${lin}${est}${!lin&&!est?'<p class="small muted" style="padding-block:10px">Nada vence neste dia.</p>':''}</div></div>`;
+  const est=dy&&Math.abs(dy.spread.base)>=1?`<div class="item"><div class="main"><div class="muted">Estimativa diluída do dia</div><div class="small muted">Gastos variáveis espalhados pelo mês</div></div><div class="val muted">${dy.spread.base>=0?'+':'−'}${brl0(Math.abs(dy.spread.base))}</div></div>`:'';
+  const vazio=passado?'Nada lançado neste dia.':'Nada vence neste dia.';
+  return `<div class="card dia-card"><div class="row between"><h3>${fLong(date)}${i===0?' (hoje)':''}</h3><span class="pill ${cls}">${passado?'saldo no fim do dia '+brl0(v):lab}</span></div>
+    <div class="list">${lin}${est}${!lin&&!est?`<p class="small muted" style="padding-block:10px">${vazio}</p>`:''}</div></div>`;
 }
 const EV_TIPO={lanc:'Lançado para este dia',renda:'Renda todo mês',fixa:'Conta fixa todo mês',cartao:'Fatura do cartão',divida:'Parcela de dívida',plano:'Planejado, só esta vez',reserva:'Reserva obrigatória'};
 function evAlvo(e){
@@ -1868,7 +1894,10 @@ function evForm(e){
   return `<form class="ev-form" data-form="ev" data-key="${esc(key)}" autocomplete="off">${aviso}<div class="fields">${nome}<div><label for="ev-valor">Valor (R$)</label><input id="ev-valor" inputmode="decimal" value="${vv(val)}"></div>${quando}${juros}</div>
     <div class="row"><button class="btn small primary" type="submit">Salvar</button>${feito}${del}<button class="btn small ghost" type="button" data-act="ev-cancel">Cancelar</button></div></form>`;
 }
-function evAchar(key){const M=mdl();return M.P.events.find(e=>e.id+'|'+e.comp===key);}
+function evAchar(key){
+  if(/\|real$/.test(key)){const id=key.slice(0,-5),l=lanc.find(x=>x.id===id);if(!l)return null;const dt=new Date(l.data+'T12:00:00');return realComoEvento(l,-1,dt);}
+  const M=mdl();return M.P.events.find(e=>e.id+'|'+e.comp===key);
+}
 function evDone(key){
   const ev=evAchar(key);if(!ev){ui.evEdit=null;render();return;}
   const v=num(document.getElementById('ev-valor')?.value);
