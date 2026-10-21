@@ -1594,11 +1594,35 @@ function vCompra(M){
     <form data-form="compra" autocomplete="off" style="margin-top:12px"><div class="fields"><div><label for="cp-nome">O que é</label><input id="cp-nome" placeholder="ex.: fone de ouvido"></div><div><label for="cp-valor">Valor (R$)</label><input id="cp-valor" inputmode="decimal" placeholder="0,00"></div></div><div style="margin-top:12px"><button class="btn primary" type="submit">Simular compra</button></div></form>${res}</section>`;
 }
 const metaFeito=m=>sum(lanc.filter(l=>l.categoria==='meta'&&l.refId===m.id&&jaAconteceu(l)),'valor');
+/* metas: a reserva de emergência vem primeiro; depois dela, tudo o que sobra no mês vai para as metas, na ordem da data desejada */
+function planoMetas(M){
+  const B=M.B.base,aporte=B.renda>0?Math.max(0,B.sobra):0;
+  const alvoR=M.fase3||0,res=reservaAtual(S,lanc);
+  const faltaR=Math.max(0,alvoR-res),mesesR=aporte>0?Math.ceil(faltaR/aporte):Infinity;
+  let sobraAtual=Math.max(0,res-alvoR);
+  const ord=(S.metas||[]).map((m,ix)=>({m,ix})).sort((x,y)=>((x.m.data||'9999')+String(x.ix).padStart(4,'0')).localeCompare((y.m.data||'9999')+String(y.ix).padStart(4,'0')));
+  let acum=0;const out={};
+  ord.forEach(({m})=>{
+    let rest=Math.max(0,m.valor-metaFeito(m));
+    const usa=Math.min(sobraAtual,rest);sobraAtual-=usa;rest-=usa;
+    acum+=rest;
+    out[m.id]={rest,aporte,alvoR,faltaR,mesesR,meses:rest<1?0:(aporte>0?mesesR+Math.ceil(acum/aporte):Infinity),antes:acum-rest};
+  });
+  return out;
+}
 function vereditoMeta(M,m){
-  const feito=metaFeito(m),rest=Math.max(0,m.valor-feito);
-  if(rest<1)return {cls:'good',tag:'Compre',txt:`Você já juntou ${brl0(feito)}, o valor da meta. Pode comprar sem mexer na reserva de emergência.`};
-  const v=conselhoCompra(M,rest);
-  return feito>0?{cls:v.cls,tag:v.tag,txt:`Já guardou ${brl0(feito)}, faltam ${brl0(rest)}. ${v.txt}`}:v;
+  const feito=metaFeito(m);
+  const p=(planoMetas(M))[m.id];
+  if(!p||p.rest<1)return {cls:'good',tag:'Compre',txt:feito>=m.valor?`Você já juntou ${brl0(feito)}, o valor da meta. Pode comprar sem mexer na reserva de emergência.`:'A reserva já passou do necessário e o excedente cobre esta meta. Pode comprar.'};
+  const ja=feito>0?`Já guardou ${brl0(feito)}, faltam ${brl0(p.rest)}. `:'';
+  if(!isFinite(p.meses))return {cls:'crit',tag:'Sem previsão',txt:`${ja}Hoje o mês não sobra dinheiro para guardar, então não há como prever. Primeiro feche a conta do mês.`};
+  const q=new Date(M.t.getFullYear(),M.t.getMonth()+p.meses,1,12),qm=MESES[q.getMonth()]+' de '+q.getFullYear();
+  const partes=[];
+  if(p.mesesR>0)partes.push(`primeiro a reserva de emergência (faltam ${brl0(p.faltaR)} de ${brl0(p.alvoR)}, ${p.mesesR} ${p.mesesR===1?'mês':'meses'})`);
+  if(p.antes>0)partes.push(`depois as metas com data anterior (${brl0(p.antes)})`);
+  partes.push(`${partes.length?'então ':''}esta meta (${brl0(p.rest)})`);
+  const atraso=m.data&&iso(q)>m.data?` Fica depois da data que você quer (${fISO(m.data)}).`:'';
+  return {cls:atraso?'crit':'warn',tag:'Em '+p.meses+(p.meses===1?' mês':' meses'),txt:`${ja}Guardando cerca de ${brl0(p.aporte)} por mês: ${partes.join(', ')}. ${p.meses===1?'É 1 mês':'São '+p.meses+' meses'} no total, previsão em ${qm}.${atraso} Lance o que guardar como “Guardar para a meta”.`};
 }
 function vMetas(M){
   const vv=n=>esc(String(Math.round((n||0)*100)/100).replace('.',','));
