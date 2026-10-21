@@ -381,6 +381,24 @@ button.cal-c.past{appearance:none;border:0;font:inherit;text-align:left;width:10
 .mini-c{position:relative}
 .md{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:2px;line-height:0}
 .md i{width:4px;height:4px;border-radius:50%}
+.sb-r{background:var(--info)}
+.g6{display:grid;grid-template-columns:minmax(0,1.3fr) 104px 52px 40px 104px 48px;grid-template-areas:"n iv ip . sv sp";align-items:center;padding-block:10px;border-bottom:1px solid var(--line)}
+.g6 > *{min-width:0}
+.g6-n{grid-area:n;display:flex;align-items:center;padding-right:8px}
+.g6 .iv{grid-area:iv;padding-left:8px} .g6 .g6-i{grid-area:ip;display:flex;justify-content:center;text-align:center}
+.g6 .sv{grid-area:sv;padding-left:8px} .g6 .sp{grid-area:sp;padding-left:8px}
+.g6.h{font:700 .8rem/1.2 var(--body);color:var(--muted);padding-block:4px 8px;border-bottom-color:var(--line-strong)}
+.g6-v{font:500 .98rem/1.2 var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+.g6-p{font:600 1.05rem/1.2 var(--mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.g6-soma{font:600 1rem/1.2 var(--mono);color:var(--good)} .g6-soma.ruim{color:var(--crit)}
+.g6.tot{border-bottom:0} .g6.tot .g6-n{font-weight:700}
+input.pin{width:calc(2ch + 16px);min-height:34px;padding:4px 0;text-align:center;font:600 1rem/1 var(--mono);color:var(--good);border-radius:8px;border:1px solid var(--line-strong);background:var(--surface-2)}
+@media(max-width:560px){
+  .g6{grid-template-columns:minmax(0,1fr) 92px 92px;grid-template-areas:"n iv sv" "n ip sp";row-gap:4px;align-items:start}
+  .g6 .g6-i{justify-content:flex-start;padding-left:8px}
+  .g6.h{grid-template-areas:"n iv sv"} .g6.h .g6-i,.g6.h .sp{display:none}
+  .g6-v{font-size:.88rem}
+}
 [hidden]{display:none!important}
 img{max-width:100%}
 .auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:16px}
@@ -1965,12 +1983,12 @@ function destinoReal(t){
   return {jan,renda,ids,tot};
 }
 const TIPOS_G=[
-  {id:'variavel',nome:'Variável',sub:'mercado, transporte, lazer, saúde',ind:[20,35]},
-  {id:'fixo',nome:'Fixo',sub:'contas que se repetem todo mês',ind:[35,35]},
-  {id:'cartao',nome:'Cartão de crédito',sub:'faturas pagas',ind:null},
-  {id:'parcela',nome:'Parcelamento ou empréstimo',sub:'parcelas, juros, mora e tarifas',ind:[30,0]},
-  {id:'guardado',nome:'Reserva e investimento',sub:'reserva, investimentos e metas',ind:[15,30]}
+  {id:'guardado',nome:'Reserva e investimento',cor:'sb-r',def:20},
+  {id:'fixo',nome:'Fixo',cor:'sb-1',def:50},
+  {id:'variavel',nome:'Variável',cor:'sb-0',def:30}
 ];
+const TIPO_MAP={parcela:'fixo',cartao:'variavel'};
+const pctInd=()=>{const p=(S.cfg&&S.cfg.pctInd)||{};const o={};TIPOS_G.forEach(t=>{o[t.id]=Number.isFinite(p[t.id])?p[t.id]:t.def;});return o;};
 const EMPRESA_RE=/(^| )(LTDA|S ?A|ME|EPP|EIRELI|PAGAMENTOS?|PLATAF\w*|HOTEL|IBIS|AIRBNB|POUSADA|COMERCIO|SERVICOS?|TECNOLOGIA|BANCO|LOJA|MERCADO|SUPERMERCADO|FARMACIA|DROGARIA|POSTO|RESTAURANTE|IFOOD|UBER|NETFLIX|SPOTIFY|CLARO|VIVO|TIM|ENEL|LIGHT|NUBANK|PICPAY|STONE|CIELO|GETNET|PAGSEGURO|EBANX|ADYEN|BUSER|PASSAGENS|VIAGENS|TURISMO)( |$)/;
 function tipoGasto(l,fx){
   const c=l.categoria,dn=normT(l.desc||'');
@@ -2015,7 +2033,7 @@ function comparativo(M){
   const sai=lanc.filter(l=>l.tipo==='saida'&&!l.cartaoId&&inP(l));
   let renda=sum(lanc.filter(l=>l.tipo==='entrada'&&inP(l)&&l.categoria!=='reserva'&&l.categoria!=='investimento'),'valor');
   const v={};TIPOS_G.forEach(t=>{v[t.id]=0;});
-  sai.forEach(l=>{v[tipoGasto(l,fx)]+=l.valor;});
+  sai.forEach(l=>{const k=tipoGasto(l,fx);v[TIPO_MAP[k]||k]+=l.valor;});
   let tot=sum(sai,'valor'),nprev=0;
   const hojeI=iso(M.t);
   if(P.ate>=hojeI){
@@ -2026,30 +2044,23 @@ function comparativo(M){
       const di=iso(e.date);if(di<P.de||di>P.ate||e.kind==='lanc'||e.virtual)return;
       const x=e.v.base;nprev++;
       if(x>0)renda+=x;
-      else{const id={fixa:'fixo',cartao:'cartao',divida:'parcela',reserva:'guardado'}[e.kind]||'variavel';v[id]+=-x;tot+=-x;}
+      else{const id={fixa:'fixo',cartao:'variavel',divida:'fixo',reserva:'guardado'}[e.kind]||'variavel';v[id]+=-x;tot+=-x;}
     });
   }
-  const temDiv=v.parcela>0||(S.dividas||[]).some(d=>dividaSaldo(d,lanc)>0);
-  const pg=x=>tot>0?Math.round(x/tot*100):0;
-  const mx=Math.max(1,...TIPOS_G.map(t=>v[t.id]));
-  const lin=TIPOS_G.map((t,ix)=>{
-    const real=v[t.id],ip=t.ind?(temDiv?t.ind[0]:t.ind[1]):null,iv=ip!=null&&renda>0?renda*ip/100:null;
-    if(real<1&&(t.id==='cartao'||(t.id==='parcela'&&!temDiv)))return '';
-    let c='';
-    if(t.id==='cartao'&&real>0)c='O que foi comprado aparece quando você importar a fatura do cartão.';
-    else if(iv!=null){const d=Math.round(real-iv);
-      if(t.id==='guardado'||t.id==='parcela'){if(d<-10)c=t.id==='parcela'?`Direcione cerca de ${brl0(-d)} a mais para a dívida.`:`Guarde cerca de ${brl0(-d)} a mais${temDiv?', depois de controlar a dívida':''}.`;}
-      else if(d>10)c=`Reduza cerca de ${brl0(d)}.`;}
-    return `<div class="g5"><div class="g5-n"><span class="swc sb-${ix}"></span>${t.nome}</div><div class="g5-v s">${brl0(real)}</div><div class="g5-p s">${pg(real)}%</div><div class="g5-v i">${iv!=null?brl0(iv):'—'}</div><div class="g5-p i ind">${iv!=null?ip+'%':''}</div>${c?`<div class="g5-a">${c}</div>`:''}</div>`;
+  const pc=pctInd(),soma=TIPOS_G.reduce((s,t)=>s+pc[t.id],0);
+  const pe=x=>renda>0?Math.round(x/renda*100):null;
+  const lin=TIPOS_G.map(t=>{
+    const real=v[t.id],ip=pc[t.id],iv=renda*ip/100,p=pe(real);
+    return `<div class="g6"><div class="g6-n"><span class="swc ${t.cor}"></span>${t.nome}</div><div class="g6-v iv">${renda>0?brl0(iv):'—'}</div><div class="g6-i"><input id="gp-p-${t.id}" class="pin" inputmode="numeric" maxlength="2" pattern="[0-9]*" value="${ip}" aria-label="Percentual indicado de ${t.nome}"></div><div class="g6-v sv">${brl0(real)}</div><div class="g6-p sp">${p==null?'—':p}</div></div>`;
   }).join('');
-  const sobra=renda-tot;
-  const fim=`<div class="g5 tot"><div class="g5-n">Total gasto</div><div class="g5-v s">${brl0(tot)}</div><div class="g5-p s">100%</div><div class="g5-v i">${renda>0?brl0(renda):''}</div><div class="g5-l i">${renda>0?'renda':''}</div></div>
-    <div class="g5 tot"><div class="g5-n">${sobra<0?'Faltou no período':'Sobrou no período'}</div><div class="g5-v s ${sobra<0?'neg':''}">${(sobra<0?'−':'')+brl0(Math.abs(sobra))}</div></div>`;
+  const pt=pe(tot);
+  const fim=`<div class="g6 tot"><div class="g6-n">Total gasto</div><div class="g6-v iv">${renda>0?brl0(renda*soma/100):'—'}</div><div class="g6-i g6-soma${soma!==100?' ruim':''}">${soma}</div><div class="g6-v sv">${brl0(tot)}</div><div class="g6-p sp">${pt==null?'—':pt}</div></div>
+    <div class="g6 tot"><div class="g6-n">Total entrada</div><div class="g6-v sv">${brl0(renda)}</div></div>`;
   M._aviso=renda>0&&tot>renda*1.2?`<div class="note" style="margin-top:10px">Em ${esc(P.rot)} saiu ${brl0(tot)} contra ${brl0(renda)} de entrada registrada. A diferença veio de algum lugar fora do que está no app, como outras contas suas, empréstimo ou cartão. Importe esses extratos para o quadro ficar fiel.</div>`:'';
-  return `${filtro}<p class="small muted" style="margin-top:10px">${esc(P.rot)}: entrou ${brl0(renda)}, saiu ${brl0(tot)} em ${sai.length} ${sai.length===1?'lançamento':'lançamentos'}${nprev?` e ${nprev} ${nprev===1?'item previsto':'itens previstos'} (rendas, contas fixas, parcelas e planejados ainda por vir)`:''}. Transferências entre as suas contas e compras no cartão ainda não pagas ficam de fora.</p>
-    <div class="stackbar" role="img" aria-label="Divisão dos gastos por tipo">${TIPOS_G.map((t,ix)=>v[t.id]>0?`<div class="sb-${ix}" style="flex:${Math.round(v[t.id])}"></div>`:'').join('')}</div>
-    <div class="cmp"><div class="g5 h"><div class="g5-n">Tipo</div><div class="s">Saiu</div><div class="s hp">%</div><div class="i">Indicado</div><div class="i hp">%</div></div>${lin}${fim}</div>
-    <p class="small muted" style="margin-top:12px">O indicado é uma referência adaptada${temDiv?' para quem tem dívida ativa: quitar vem antes de investir':' para quem não tem dívida'}, aplicada à renda do período. Não é cálculo do seu caso.</p>`;
+  return `${filtro}
+    <div class="stackbar" role="img" aria-label="Divisão dos gastos por tipo">${TIPOS_G.map(t=>v[t.id]>0?`<div class="${t.cor}" style="flex:${Math.round(v[t.id])}"></div>`:'').join('')}</div>
+    <div class="cmp"><div class="g6 h"><div class="g6-n">Tipo</div><div class="iv">Indicado</div><div class="g6-i">%</div><div class="sv">Saiu</div><div class="sp">%</div></div>${lin}${fim}</div>
+    ${soma!==100?`<p class="small" style="margin-top:8px;color:var(--crit)">Os percentuais indicados somam ${soma}. O ideal é 100.</p>`:''}`;
 }
 function cardSobra(M,al,h){
   const B=M.B.base,vh=M.cfg.valorHora,mes=mkey(M.t);
@@ -2611,11 +2622,13 @@ function render(fresh){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;if(b.dataset.act==='auth-modo'){mostrarLogin(b.dataset.v);return;}if(b.dataset.act==='sair'){sb.auth.signOut().then(()=>location.reload());return;}act(b.dataset.act,b.dataset,b);});
 document.addEventListener('input',e=>{
-  const t=e.target;if(!t||!t.matches||!t.matches('input[data-num],input[inputmode="decimal"]'))return;
+  const t=e.target;if(t&&t.classList&&t.classList.contains('pin')){const c=t.value.replace(/\D/g,'').slice(0,2);if(c!==t.value)t.value=c;return;}
+  if(!t||!t.matches||!t.matches('input[data-num],input[inputmode="decimal"]'))return;
   const v=t.value,c=v.replace(/[^0-9.,]/g,'');if(c!==v){const p=t.selectionStart-(v.length-c.length);t.value=c;try{t.setSelectionRange(p,p);}catch(_){}}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t&&t.id&&t.id.indexOf('gp-p-')===0){const k=t.id.slice(5),n=Math.max(0,Math.min(99,parseInt(String(t.value).replace(/\D/g,'').slice(0,2))||0));S.cfg.pctInd=Object.assign(pctInd(),{[k]:n});persist();render();return;}
   if(t&&(t.id==='gp-mes'||t.id==='gp-ano'||t.id==='gp-de'||t.id==='gp-ate')){(ui.gp=ui.gp||{})[t.id.slice(3)]=t.value;render(['gp-']);return;}
   if(t&&t.id==='lf-o'){ui.lf.o=t.value;return;}
   if(t&&t.id==='imp-ano'){ui.impAno=t.value;ui.impMes='';render(['imp-']);return;}
