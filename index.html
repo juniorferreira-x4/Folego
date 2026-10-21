@@ -14,7 +14,7 @@
   --ink:#111418; --muted:#4D5560; --accent:#C2410C; --accent-hover:#9A3412; --accent-ink:#FFFFFF; --accent-soft:#FFE8DC;
   --good:#1F6B45; --good-soft:#DCEFE4; --warn:#8A4B00; --warn-soft:#FFF1E0; --crit:#B42318; --crit-soft:#FDE2DE;
   --card-line:transparent; --field-line:transparent; --hero:#111418; --hero-ink:#FFFFFF; --hero-muted:#C9CED5; --hero-crit:#FF8E80;
-  --c3:#6B7280; --c4:#D97706; --c5:#C9CED5;
+  --c3:#6B7280; --c4:#D97706; --c5:#C9CED5; --info:#1D4ED8;
   --s-min:#B4410C; --s-base:#C2410C; --s-max:#0F766E; --band:rgba(194,65,12,.08);
   --display:"Schibsted Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
   --body:"Schibsted Grotesk","Segoe UI",system-ui,-apple-system,sans-serif;
@@ -25,14 +25,14 @@
   --ink:#F1F3F5; --muted:#A9B1BC; --accent:#FF8A4C; --accent-hover:#FFA06E; --accent-ink:#1A0D05; --accent-soft:#3A2216;
   --good:#5FD39A; --good-soft:#163527; --warn:#F2C15A; --warn-soft:#3A2D12; --crit:#FF8E80; --crit-soft:#3E1D19;
   --card-line:#2A2F37; --field-line:#353B45; --hero:#F1F3F5; --hero-ink:#111418; --hero-muted:#4D5560; --hero-crit:#B42318;
-  --c3:#8A93A0; --c4:#F2C15A; --c5:#4A515C;
+  --c3:#8A93A0; --c4:#F2C15A; --c5:#4A515C; --info:#6FA8FF;
   --s-min:#FF9A6B; --s-base:#FF8A4C; --s-max:#5FD3C8; --band:rgba(255,138,76,.12); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0E1013; --surface:#181B20; --surface-2:#22262D; --line:#2A2F37; --line-strong:#5F6875;
   --ink:#F1F3F5; --muted:#A9B1BC; --accent:#FF8A4C; --accent-hover:#FFA06E; --accent-ink:#1A0D05; --accent-soft:#3A2216;
   --good:#5FD39A; --good-soft:#163527; --warn:#F2C15A; --warn-soft:#3A2D12; --crit:#FF8E80; --crit-soft:#3E1D19;
   --card-line:#2A2F37; --field-line:#353B45; --hero:#F1F3F5; --hero-ink:#111418; --hero-muted:#4D5560; --hero-crit:#B42318;
-  --c3:#8A93A0; --c4:#F2C15A; --c5:#4A515C;
+  --c3:#8A93A0; --c4:#F2C15A; --c5:#4A515C; --info:#6FA8FF;
   --s-min:#FF9A6B; --s-base:#FF8A4C; --s-max:#5FD3C8; --band:rgba(255,138,76,.12); color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -303,10 +303,11 @@ input,select{background:var(--surface-2);border:1px solid var(--field-line);bord
 .cal-c.low{background:var(--warn-soft)} .cal-c.neg{background:var(--crit-soft)}
 .cal-c.today{background:var(--ink);outline:0}
 .cal-c.today .cal-d,.cal-c.today .cal-v{color:var(--bg)}
-.cal-c.today .cal-dots i{background:var(--bg)}
 .cal-c.sel{background:var(--accent-soft);outline:2px solid var(--accent);outline-offset:-2px}
 .cal-c.today.sel{background:var(--ink)}
-.cal-dots i{background:var(--accent);width:6px;height:6px}
+.cal-dots i{width:7px;height:7px;background:var(--ink)}
+.cal-dots i.in,.md i.in{background:var(--good)} .cal-dots i.out,.md i.out{background:var(--crit)} .cal-dots i.res,.md i.res{background:var(--info)}
+.cal-c.today .cal-dots i{box-shadow:0 0 0 1.5px var(--ink)}
 .cal-big .cal{gap:6px}
 .cal-big .cal-c{min-height:68px;padding:8px}
 .cal-big .cal-c.past{min-height:30px;background:none}
@@ -377,8 +378,9 @@ input,select{background:var(--surface-2);border:1px solid var(--field-line);bord
 .cal-big .cal-c.past .cal-v{color:var(--muted)}
 .cal-big .cal-c.past.sel{background:var(--accent-soft);outline:2px solid var(--accent);outline-offset:-2px}
 button.cal-c.past{appearance:none;border:0;font:inherit;text-align:left;width:100%}
-.mini-c.tem{position:relative}
-.mini-c.tem::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}
+.mini-c{position:relative}
+.md{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:2px;line-height:0}
+.md i{width:4px;height:4px;border-radius:50%}
 [hidden]{display:none!important}
 img{max-width:100%}
 .auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:16px}
@@ -1811,11 +1813,12 @@ function secCalendario(M){
     const dias=[];let min=Infinity;
     for(let day=1;day<=nd;day++){
       const dt=new Date(first.getFullYear(),first.getMonth(),day,12),i=Math.round((dt.getTime()-t.getTime())/86400000);
-      const di=iso(dt),nr=realDoDia(di).length;
-      if(i<0){dias.push({day,i,dt,past:true,v:saldoFimDia(M,di),n:nr});continue;}
+      const di=iso(dt),rt=realDoDia(di).map(tipoReal);
+      if(i<0){dias.push({day,i,dt,past:true,v:saldoFimDia(M,di),n:rt.length,ts:rt});continue;}
       if(i>=ser.length){dias.push({day,out:true});continue;}
       const v=ser[i];min=Math.min(min,v);
-      dias.push({day,i,v,dt,c:v<0?'neg':(v<M.piso?'low':'ok'),n:M.P.days[i].ev.filter(e=>!e.virtual).length+(i===0?nr:0)});
+      const ts=M.P.days[i].ev.filter(e=>!e.virtual).map(tipoEv).concat(i===0?rt:[]);
+      dias.push({day,i,v,dt,c:v<0?'neg':(v<M.piso?'low':'ok'),n:ts.length,ts});
     }
     return {first,dias,min,nome:MESES[first.getMonth()]+' '+first.getFullYear()};
   };
@@ -1823,19 +1826,28 @@ function secCalendario(M){
   let cells='';for(let z=0;z<m0.first.getDay();z++)cells+='<div class="cal-c off"></div>';
   m0.dias.forEach(d=>{
     if(d.out){cells+=`<div class="cal-c off"><span class="cal-d">${d.day}</span></div>`;return;}
-    if(d.past){const dots=Array.from({length:Math.min(4,d.n)},()=>'<i></i>').join('');cells+=`<button class="cal-c past${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo no fim do dia '+brl0(d.v))}"><span class="cal-d">${d.day}</span><span class="cal-v">${kc(d.v)}</span><span class="cal-dots">${dots}</span></button>`;return;}
-    const dots=Array.from({length:Math.min(4,d.n)},()=>'<i></i>').join('');
+    if(d.past){const dots=pontos(d.ts);cells+=`<button class="cal-c past${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo no fim do dia '+brl0(d.v))}"><span class="cal-d">${d.day}</span><span class="cal-v">${kc(d.v)}</span><span class="cal-dots">${dots}</span></button>`;return;}
+    const dots=pontos(d.ts);
     cells+=`<button class="cal-c ${d.c}${d.i===0?' today':''}${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v))}"><span class="cal-d">${d.day}</span><span class="cal-v">${kc(d.v)}</span><span class="cal-dots">${dots}</span></button>`;
   });
   const grande=`<div class="card cal-big"><div class="row between"><h3 style="text-transform:capitalize">${m0.nome}</h3><span class="small muted mono">${m0.min===Infinity?'':'menor saldo '+brl0(m0.min)}</span></div><div class="cal-head">${WD.map(w=>`<span>${w}</span>`).join('')}</div><div class="cal">${cells}</div></div>`;
   const mini=m=>{const x=mes(m);let c='';for(let z=0;z<x.first.getDay();z++)c+='<span class="mini-c off"></span>';
-    x.dias.forEach(d=>{c+=(d.past||d.out)?`<span class="mini-c off">${d.day}</span>`:`<button class="mini-c ${d.c}${sel===d.i?' sel':''}${d.n?' tem':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v)+(d.n?', com '+d.n+(d.n===1?' item':' itens'):''))}">${d.day}</button>`;});
+    x.dias.forEach(d=>{c+=(d.past||d.out)?`<span class="mini-c off">${d.day}</span>`:`<button class="mini-c ${d.c}${sel===d.i?' sel':''}" data-act="dia" data-i="${d.i}" aria-label="${esc(fLong(d.dt)+', saldo previsto '+brl0(d.v)+(d.n?', com '+d.n+(d.n===1?' item':' itens'):''))}">${d.day}${d.n?`<span class="md">${pontos(d.ts)}</span>`:''}</button>`;});
     return `<div><div class="mini-m">${MESES[x.first.getMonth()]}</div><div class="mini">${c}</div><div class="mini-s">menor ${x.min===Infinity?'—':brl0(x.min)}</div></div>`;};
   const minis=`<div class="card"><h3>Próximos meses</h3><div class="minis">${mini(1)}${mini(2)}</div></div>`;
-  const legenda=`<div class="legend" style="margin-top:0"><span><span class="sw" style="background:var(--good)"></span>acima do piso</span><span><span class="sw" style="background:var(--warn)"></span>abaixo do piso</span><span><span class="sw" style="background:var(--crit)"></span>saldo negativo</span><span><span class="dot" style="background:var(--accent)"></span>tem conta ou entrada no dia</span></div>`;
+  const legenda=`<div class="legend" style="margin-top:0"><span><span class="sw" style="background:var(--good)"></span>acima do piso</span><span><span class="sw" style="background:var(--warn)"></span>abaixo do piso</span><span><span class="sw" style="background:var(--crit)"></span>saldo negativo</span><span><span class="dot" style="background:var(--good)"></span>entrada</span><span><span class="dot" style="background:var(--crit)"></span>saída</span><span><span class="dot" style="background:var(--info)"></span>reserva ou investimento</span></div>`;
   return secW('calendario',secH('calendario','Calendário dos próximos 3 meses','')+
     `${guiaTopo()}<div class="cal-grid"><div class="stack">${grande}${minis}</div><div class="dia-fixo">${painelDia(M)}</div></div>${legenda}`);
 }
+const GUARDA=new Set(['reserva','investimento','meta']);
+function tipoReal(l){return GUARDA.has(l.categoria)?'res':(l.tipo==='entrada'?'in':'out');}
+function tipoEv(e){
+  if(e.kind==='reserva')return 'res';
+  if(e.kind==='lanc'){const l=lanc.find(x=>x.id===e.id);if(l)return tipoReal(l);}
+  return e.v.base>0?'in':'out';
+}
+const ORD_T={in:0,out:1,res:2};
+const pontos=ts=>ts.slice().sort((a,b)=>ORD_T[a]-ORD_T[b]).slice(0,4).map(t=>`<i class="${t}"></i>`).join('');
 function realDoDia(di){return lanc.filter(l=>l.data===di&&jaAconteceu(l));}
 function realComoEvento(l,i,dt){
   const ent=l.tipo==='entrada',x=l.cartaoId?0:(ent?l.valor:-l.valor);
