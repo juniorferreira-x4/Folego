@@ -1847,7 +1847,7 @@ function tipoEv(e){
   return e.v.base>0?'in':'out';
 }
 const ORD_T={in:0,out:1,res:2};
-const pontos=ts=>ts.slice().sort((a,b)=>ORD_T[a]-ORD_T[b]).slice(0,4).map(t=>`<i class="${t}"></i>`).join('');
+const pontos=ts=>[...new Set(ts)].sort((a,b)=>ORD_T[a]-ORD_T[b]).map(t=>`<i class="${t}"></i>`).join('');
 function realDoDia(di){return lanc.filter(l=>l.data===di&&jaAconteceu(l));}
 function realComoEvento(l,i,dt){
   const ent=l.tipo==='entrada',x=l.cartaoId?0:(ent?l.valor:-l.valor);
