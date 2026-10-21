@@ -404,9 +404,10 @@ const VAR_CATS=['mercado','transporte','lazer','saúde','outros'];
 const DEBT_CARA=['rotativo','cheque_especial'];
 const SCN=['min','base','max'];
 
-function saldoAtual(S,lanc){let s=S.cfg.saldo;for(const l of lanc){if(l.ts>S.cfg.saldoTs&&!l.cartaoId)s+=l.tipo==='entrada'?l.valor:-l.valor;}return s;}
-function investAtual(S,lanc){let r=S.cfg.investimento||0;for(const l of lanc){if(l.categoria==='investimento'&&l.ts>(S.cfg.investimentoTs||0))r+=l.valor;}return r;}
-function reservaAtual(S,lanc){let r=S.cfg.reserva;for(const l of lanc){if(l.categoria==='reserva'&&l.ts>S.cfg.reservaTs)r+=l.valor;}return r;}
+const jaAconteceu=l=>!l.data||l.data<=iso(todayD());
+function saldoAtual(S,lanc){let s=S.cfg.saldo;for(const l of lanc){if(l.ts>S.cfg.saldoTs&&!l.cartaoId&&jaAconteceu(l))s+=l.tipo==='entrada'?l.valor:-l.valor;}return s;}
+function investAtual(S,lanc){let r=S.cfg.investimento||0;for(const l of lanc){if(l.categoria==='investimento'&&l.ts>(S.cfg.investimentoTs||0)&&jaAconteceu(l))r+=l.valor;}return r;}
+function reservaAtual(S,lanc){let r=S.cfg.reserva;for(const l of lanc){if(l.categoria==='reserva'&&l.ts>S.cfg.reservaTs&&jaAconteceu(l))r+=l.valor;}return r;}
 function dividaSaldo(d,lanc){let s=d.saldo;for(const l of lanc){if(l.categoria==='divida'&&l.refId===d.id&&l.ts>d.ts)s-=l.valor;}return Math.max(0,s);}
 
 function variavel(S,lanc,t){
@@ -441,6 +442,7 @@ function project(S,lanc,t,varMensal,extras){
   const rendas=S.rendas.filter(r=>r.ativa!==false);
   const dividas=S.dividas.map(d=>({d,aberto:dividaSaldo(d,lanc)>0,rest:parcelasRestantes(d,lanc),n:0}));
   const plan=S.planejados||[];
+  const hojeIso=iso(t),futuros=lanc.filter(l=>l.data&&l.data>hojeIso&&!l.cartaoId&&!l.imp&&l.ts>S.cfg.saldoTs);
   const rp=Math.max(0,(S.cfg.pagueSePct||0)/100),pctR=String(S.cfg.pagueSePct||0).replace('.',',');
   const recv={};for(const l of lanc)if(l.refId&&l.comp&&l.tipo==='entrada')recv[l.refId+'|'+l.comp]=l.valor;
   const sgn=x=>({min:x,base:x,max:x});
@@ -480,6 +482,10 @@ function project(S,lanc,t,varMensal,extras){
         ev.push({i,date:d,kind:'divida',id:x.d.id,comp:mk,nome:(x.rest!=null?'Parcela ':'Mínimo ')+x.d.nome,banco:x.d.banco,valor:m,v:sgn(-m)});
       }
     }
+    if(i===0){
+      for(const p of plan)if(p.data<di&&!paid.has(p.id+'|one'))ev.push({i,date:d,kind:'plano',id:p.id,comp:'one',nome:p.nome+' (atrasado)',tipo:p.tipo,banco:p.banco,valor:p.valor,v:sgn(p.tipo==='entrada'?p.valor:-p.valor)});
+    }
+    if(i>0)for(const l of futuros)if(l.data===di)ev.push({i,date:d,kind:'lanc',id:l.id,comp:'lanc',nome:l.desc||'Lançamento',banco:l.banco,valor:l.valor,v:sgn(l.tipo==='entrada'?l.valor:-l.valor)});
     for(const p of plan){
       if(p.data===di&&!paid.has(p.id+'|one')){
         ev.push({i,date:d,kind:'plano',id:p.id,comp:'one',nome:p.nome,tipo:p.tipo,banco:p.banco,valor:p.valor,v:sgn(p.tipo==='entrada'?p.valor:-p.valor)});
@@ -1295,6 +1301,11 @@ function addLanc(o){
   if(lancCol){lancCol.add(clean).catch(()=>toast('Não consegui salvar o lançamento. Tente de novo.'));}
   else{lancRaw=[Object.assign({id:'l'+uid()},clean)].concat(lancRaw);rebuild();render();}
 }
+function salvaLanc(o){
+  const id=o.id,body=clone(o);delete body.id;delete body.imp;delete body.lote;
+  if(lancCol){lancCol.doc(id).set(body).catch(()=>toast('Não consegui salvar. Tente de novo.'));}
+  else{lancRaw=lancRaw.map(l=>l.id===id?Object.assign({id},body):l);rebuild();render();}
+}
 function rebuild(){
   const flat=[];
   for(const L of loteRaw)for(const it of (L.itens||[]))flat.push(Object.assign({},it,{id:L.id+':'+it.k,lote:L.id,imp:true}));
@@ -1391,7 +1402,7 @@ function act(a,d){
     case 'ev-cancel':ui.evEdit=null;ui.delArm=null;render(['ev-']);break;
     case 'ev-done':evDone(d.key);break;
     case 'ev-del-arm':ui.delArm='ev:'+d.key;render();break;
-    case 'ev-del':{const e=evAchar(d.key),al=e&&evAlvo(e);if(al&&al.x){S[al.sec]=S[al.sec].filter(z=>z.id!==al.x.id);persist();toast('Excluído.');}ui.evEdit=null;ui.delArm=null;render(['ev-']);break;}
+    case 'ev-del':{const e=evAchar(d.key),al=e&&evAlvo(e);if(al&&al.x&&al.sec==='lanc'){delLanc(al.x.id);toast('Excluído.');}else if(al&&al.x){S[al.sec]=S[al.sec].filter(z=>z.id!==al.x.id);persist();toast('Excluído.');}ui.evEdit=null;ui.delArm=null;render(['ev-']);break;}
     case 'del-lanc':ui.delArm=null;delLanc(d.id);break;
     case 'del-item':{const arr=S[d.sec];S[d.sec]=arr.filter(x=>x.id!==d.id);ui.delArm=null;ui.editing=null;persist();render(['f-'+d.sec]);break;}
     case 'edit':ui.editing={sec:d.sec,id:d.id};ui.lf.kind=SEC_KIND[d.sec]||ui.lf.kind;render(['f-'+d.sec,'lf-kind']);goTo('lancamentos');break;
@@ -1451,6 +1462,11 @@ function submit(name,f){
     if(!al||!al.x){ui.evEdit=null;render();return;}
     const x=al.x,v=num(val(f,'ev-valor'));
     if(!(v>0)){toast('Informe um valor maior que zero.');return;}
+    if(e.kind==='lanc'){
+      const dt=val(f,'ev-data');if(!/^\d{4}-\d{2}-\d{2}$/.test(dt)){toast('Informe uma data válida.');return;}
+      const nm=f.querySelector('#ev-nome'),novo=Object.assign({},x,{valor:v,data:dt,ts:tsFor(dt),desc:(nm&&nm.value.trim())||x.desc});
+      ui.evEdit=null;salvaLanc(novo);render(['ev-']);toast('Salvo.');return;
+    }
     const nm=f.querySelector('#ev-nome');if(nm&&nm.value.trim())x.nome=nm.value.trim();
     if(e.kind==='plano'){const dt=val(f,'ev-data');if(!/^\d{4}-\d{2}-\d{2}$/.test(dt)){toast('Informe uma data válida.');return;}x.data=dt;x.valor=v;}
     else{
@@ -1577,7 +1593,7 @@ function vCompra(M){
   return `<section class="card"><h3>Posso gastar isso agora?</h3><p class="small muted" style="margin-top:6px">Leva em conta a sua reserva, os investimentos e o saldo da conta. A regra: a compra só é segura quando for até 10% do que você tem guardado. Nada é lançado.</p>
     <form data-form="compra" autocomplete="off" style="margin-top:12px"><div class="fields"><div><label for="cp-nome">O que é</label><input id="cp-nome" placeholder="ex.: fone de ouvido"></div><div><label for="cp-valor">Valor (R$)</label><input id="cp-valor" inputmode="decimal" placeholder="0,00"></div></div><div style="margin-top:12px"><button class="btn primary" type="submit">Simular compra</button></div></form>${res}</section>`;
 }
-const metaFeito=m=>sum(lanc.filter(l=>l.categoria==='meta'&&l.refId===m.id),'valor');
+const metaFeito=m=>sum(lanc.filter(l=>l.categoria==='meta'&&l.refId===m.id&&jaAconteceu(l)),'valor');
 function vereditoMeta(M,m){
   const feito=metaFeito(m),rest=Math.max(0,m.valor-feito);
   if(rest<1)return {cls:'good',tag:'Compre',txt:`Você já juntou ${brl0(feito)}, o valor da meta. Pode comprar sem mexer na reserva de emergência.`};
@@ -1800,8 +1816,9 @@ function painelDia(M){
   return `<div class="card dia-card"><div class="row between"><h3>${fLong(dy.date)}${i===0?' (hoje)':''}</h3><span class="pill ${cls}">${lab}</span></div>
     <div class="list">${lin}${est}${!lin&&!est?'<p class="small muted" style="padding-block:10px">Nada vence neste dia.</p>':''}</div></div>`;
 }
-const EV_TIPO={renda:'Renda todo mês',fixa:'Conta fixa todo mês',cartao:'Fatura do cartão',divida:'Parcela de dívida',plano:'Planejado, só esta vez',reserva:'Reserva obrigatória'};
+const EV_TIPO={lanc:'Lançado para este dia',renda:'Renda todo mês',fixa:'Conta fixa todo mês',cartao:'Fatura do cartão',divida:'Parcela de dívida',plano:'Planejado, só esta vez',reserva:'Reserva obrigatória'};
 function evAlvo(e){
+  if(e.kind==='lanc')return {sec:'lanc',x:lanc.find(l=>l.id===e.id)};
   if(e.kind==='plano')return {sec:'planejados',x:(S.planejados||[]).find(p=>p.id===e.id)};
   if(e.kind==='fixa')return {sec:'fixas',x:S.fixas.find(p=>p.id===e.id)};
   if(e.kind==='renda')return {sec:'rendas',x:S.rendas.find(p=>p.id===e.id)};
@@ -1812,17 +1829,17 @@ function evAlvo(e){
 function evForm(e){
   const key=e.id+'|'+e.comp,al=evAlvo(e),x=al&&al.x,ent=e.v.base>0;
   const vv=n=>esc(String(Math.round((n||0)*100)/100).replace('.',','));
-  const feito=e.i<=31?`<button class="btn small" type="button" data-act="ev-done" data-key="${esc(key)}">${e.kind==='reserva'?'Já separei':(ent?'Já recebi':'Já paguei')}</button>`:'';
+  const feito=e.kind!=='lanc'&&e.i<=31?`<button class="btn small" type="button" data-act="ev-done" data-key="${esc(key)}">${e.kind==='reserva'?'Já separei':(ent?'Já recebi':'Já paguei')}</button>`:'';
   if(!x){
     return `<form class="ev-form" data-form="ev" data-key="${esc(key)}" autocomplete="off"><p class="small muted">A reserva obrigatória é calculada pela renda. Para mudar, edite a renda ou a porcentagem.</p><div><label for="ev-valor">Valor separado (R$)</label><input id="ev-valor" inputmode="decimal" value="${vv(Math.abs(e.v.base))}"></div><div class="row">${feito}<button class="btn small ghost" type="button" data-act="ev-cancel">Fechar</button></div></form>`;
   }
-  const nome=e.kind==='cartao'?'':`<div><label for="ev-nome">Nome</label><input id="ev-nome" value="${esc(x.nome||'')}"></div>`;
+  const nome=e.kind==='cartao'?'':`<div><label for="ev-nome">${e.kind==='lanc'?'Descrição':'Nome'}</label><input id="ev-nome" value="${esc((e.kind==='lanc'?x.desc:x.nome)||'')}"></div>`;
   const val=e.kind==='renda'?x.base:(e.kind==='cartao'?x.fatura:(e.kind==='divida'?x.minimo:x.valor));
-  const quando=e.kind==='plano'?`<div><label for="ev-data">Data</label><input id="ev-data" type="date" value="${esc(x.data)}"></div>`:`<div><label for="ev-dia">Dia do mês</label><input id="ev-dia" inputmode="numeric" value="${esc(String(e.kind==='cartao'?x.venc:x.dia))}"></div>`;
-  const aviso=e.kind==='plano'?'':'<p class="small muted">Muda este item em todos os meses.</p>';
+  const quando=e.kind==='plano'||e.kind==='lanc'?`<div><label for="ev-data">Data</label><input id="ev-data" type="date" value="${esc(x.data)}"></div>`:`<div><label for="ev-dia">Dia do mês</label><input id="ev-dia" inputmode="numeric" value="${esc(String(e.kind==='cartao'?x.venc:x.dia))}"></div>`;
+  const aviso=e.kind==='plano'||e.kind==='lanc'?(e.kind==='lanc'?'<p class="small muted">Entra no saldo só neste dia.</p>':''):'<p class="small muted">Muda este item em todos os meses.</p>';
   const juros=e.kind==='divida'?`<div><label for="ev-taxa">Juros ao mês (%)</label><input id="ev-taxa" inputmode="decimal" value="${x.taxa?vv(x.taxa):''}" placeholder="ex.: 12"></div><div><label for="ev-saldo">Saldo devedor (R$)</label><input id="ev-saldo" inputmode="decimal" value="${vv(x.saldo)}"></div>`:'';
   const arm=ui.delArm==='ev:'+key;
-  const del=e.kind==='plano'||e.kind==='fixa'||e.kind==='renda'?(arm?`<button class="btn small danger" type="button" data-act="ev-del" data-key="${esc(key)}">Confirmar exclusão</button>`:`<button class="btn small ghost" type="button" data-act="ev-del-arm" data-key="${esc(key)}">Excluir</button>`):'';
+  const del=e.kind==='plano'||e.kind==='lanc'||e.kind==='fixa'||e.kind==='renda'?(arm?`<button class="btn small danger" type="button" data-act="ev-del" data-key="${esc(key)}">Confirmar exclusão</button>`:`<button class="btn small ghost" type="button" data-act="ev-del-arm" data-key="${esc(key)}">Excluir</button>`):'';
   return `<form class="ev-form" data-form="ev" data-key="${esc(key)}" autocomplete="off">${aviso}<div class="fields">${nome}<div><label for="ev-valor">Valor (R$)</label><input id="ev-valor" inputmode="decimal" value="${vv(val)}"></div>${quando}${juros}</div>
     <div class="row"><button class="btn small primary" type="submit">Salvar</button>${feito}${del}<button class="btn small ghost" type="button" data-act="ev-cancel">Cancelar</button></div></form>`;
 }
