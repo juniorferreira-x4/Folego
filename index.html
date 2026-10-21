@@ -399,6 +399,10 @@ input.pin{width:calc(2ch + 16px);min-height:34px;padding:4px 0;text-align:center
   .g6.h{grid-template-areas:"n iv sv"} .g6.h .g6-i,.g6.h .sp{display:none}
   .g6-v{font-size:.88rem}
 }
+.gp-card{display:flex;flex-direction:column}
+.gp-card > .cmp{flex:1 1 auto;display:flex;flex-direction:column}
+.gp-card .g6:not(.h){flex:1 1 auto}
+.gp-card .stackbar{margin-block:14px 6px}
 [hidden]{display:none!important}
 img{max-width:100%}
 .auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:16px}
@@ -2053,9 +2057,9 @@ function comparativo(M){
     const real=v[t.id],ip=pc[t.id],iv=renda*ip/100,p=pe(real);
     return `<div class="g6"><div class="g6-n"><span class="swc ${t.cor}"></span>${t.nome}</div><div class="g6-v iv">${renda>0?brl0(iv):'—'}</div><div class="g6-i"><input id="gp-p-${t.id}" class="pin" inputmode="numeric" maxlength="2" pattern="[0-9]*" value="${ip}" aria-label="Percentual indicado de ${t.nome}"></div><div class="g6-v sv">${brl0(real)}</div><div class="g6-p sp">${p==null?'—':p}</div></div>`;
   }).join('');
-  const pt=pe(tot);
+  const pt=renda>0?TIPOS_G.reduce((s,t)=>s+pe(v[t.id]),0):null;
   const fim=`<div class="g6 tot"><div class="g6-n">Total gasto</div><div class="g6-v iv">${renda>0?brl0(renda*soma/100):'—'}</div><div class="g6-i g6-soma${soma!==100?' ruim':''}">${soma}</div><div class="g6-v sv">${brl0(tot)}</div><div class="g6-p sp">${pt==null?'—':pt}</div></div>
-    <div class="g6 tot"><div class="g6-n">Total entrada</div><div class="g6-v sv">${brl0(renda)}</div></div>`;
+`;
   M._aviso=renda>0&&tot>renda*1.2?`<div class="note" style="margin-top:10px">Em ${esc(P.rot)} saiu ${brl0(tot)} contra ${brl0(renda)} de entrada registrada. A diferença veio de algum lugar fora do que está no app, como outras contas suas, empréstimo ou cartão. Importe esses extratos para o quadro ficar fiel.</div>`:'';
   return `${filtro}
     <div class="stackbar" role="img" aria-label="Divisão dos gastos por tipo">${TIPOS_G.map(t=>v[t.id]>0?`<div class="${t.cor}" style="flex:${Math.round(v[t.id])}"></div>`:'').join('')}</div>
@@ -2098,7 +2102,7 @@ function cardSobra(M,al,h){
       <p class="small muted" style="margin-top:8px">${esc(al.regra)}</p>${h.economia>0?`<p class="small" style="margin-top:8px">Cumprindo as metas de hábitos, sobram mais <b class="mono">${brl0(h.economia)}</b> por mês para o mesmo destino.</p>`:''}`;
   }
   const calib=M.varM.fonte==='calibrando'&&B.renda>0?'<div class="note" style="margin-top:12px">Seus gastos variáveis ainda estão sendo calibrados. A sobra tende a ser menor do que aparece aqui.</div>':'';
-  return {esq:`<div class="card"><h3>Para onde vai o dinheiro</h3>${linhas}</div>`,dir:`<div class="card"><h3>O que fazer com o mês</h3>${(M._aviso||'')+calib+corpo||'<p class="small muted" style="margin-top:8px">Importe extratos para eu comparar.</p>'}</div>`};
+  return {esq:`<div class="card gp-card"><h3>Para onde vai o dinheiro</h3>${linhas}</div>`,dir:`<div class="card"><h3>O que fazer com o mês</h3>${(M._aviso||'')+calib+corpo||'<p class="small muted" style="margin-top:8px">Importe extratos para eu comparar.</p>'}</div>`};
 }
 /* ---------- 3. evolução: reserva, investimentos e dívidas ---------- */
 function mesesUlt(n,t){const o=[];for(let i=n-1;i>=0;i--)o.push(mkey(new Date(t.getFullYear(),t.getMonth()-i,1,12)));return o;}
