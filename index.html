@@ -2566,7 +2566,7 @@ function sbDb(uid){
   };
 }
 const AUTH_MSG={'Invalid login credentials':'E-mail ou senha incorretos.','Email not confirmed':'Confirme o e-mail antes de entrar. O link foi enviado para a sua caixa de entrada.','User already registered':'Esse e-mail já tem conta. Use Entrar.'};
-const authErr=e=>{const m=(e&&e.message)||'';if(/Cadastro fechado|Database error saving new user/.test(m))return 'O cadastro está fechado: este Fôlego já tem dono.';if(/Password should be/.test(m))return 'A senha precisa ter pelo menos 8 caracteres.';return AUTH_MSG[m]||('Não deu certo: '+m);};
+const authErr=e=>{const m=(e&&e.message)||'';if(/Database error saving new user/.test(m))return 'Não consegui criar a conta agora. Tente de novo em instantes.';if(/Password should be/.test(m))return 'A senha precisa ter pelo menos 8 caracteres.';return AUTH_MSG[m]||('Não deu certo: '+m);};
 function mostrarLogin(modo,msg,err){
   const root=document.getElementById('app');if(!root)return;
   const T={entrar:['Entrar','Entrar'],criar:['Criar conta','Criar conta'],esqueci:['Recuperar senha','Enviar link'],nova:['Nova senha','Salvar senha']}[modo]||['Entrar','Entrar'];
@@ -2574,7 +2574,7 @@ function mostrarLogin(modo,msg,err){
   const senha=modo==='esqueci'?'':`<div><label for="au-senha">${modo==='nova'?'Nova senha':'Senha'}</label><input id="au-senha" type="password" minlength="8" autocomplete="${modo==='entrar'?'current-password':'new-password'}" required></div>`;
   const links=modo==='entrar'?`<button class="btn ghost" type="button" data-act="auth-modo" data-v="esqueci">Esqueci a senha</button><button class="btn ghost" type="button" data-act="auth-modo" data-v="criar">Criar conta</button>`:(modo==='nova'?'':`<button class="btn ghost" type="button" data-act="auth-modo" data-v="entrar">Voltar para Entrar</button>`);
   root.innerHTML=`<div class="auth"><div class="brand">Fôlego</div><section class="card"><h2 style="font-size:1.35rem">${T[0]}</h2>
-    ${modo==='criar'?'<p class="small muted" style="margin-top:6px">Depois de criar, confirme o e-mail pelo link que chega na sua caixa de entrada.</p>':''}
+    ${modo==='criar'?'<p class="small muted" style="margin-top:6px">Seus dados ficam só na sua conta. Depois de criar, confirme o e-mail pelo link que chega na sua caixa de entrada.</p>':''}
     ${modo==='esqueci'?'<p class="small muted" style="margin-top:6px">Você recebe um link para criar uma senha nova.</p>':''}
     <form data-form="auth-${modo}" style="margin-top:14px" autocomplete="on">${email}${senha}
     ${msg?`<p class="small ${err?'err':'muted'}">${esc(msg)}</p>`:''}
