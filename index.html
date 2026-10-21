@@ -403,6 +403,25 @@ input.pin{width:calc(2ch + 16px);min-height:34px;padding:4px 0;text-align:center
 .gp-card > .cmp{flex:1 1 auto;display:flex;flex-direction:column}
 .gp-card .g6:not(.h){flex:1 1 auto}
 .gp-card .stackbar{margin-block:14px 6px}
+.stick{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;padding-block:8px}
+.stick .hero3{margin:0;gap:10px}
+.stick .ht{padding:10px 14px;border-radius:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hl hv" "hb hb" "hs hs";align-items:baseline;column-gap:10px}
+.stick .ht .hl{grid-area:hl;font-size:.8rem}
+.stick .ht .hv{grid-area:hv;margin:0;font-size:1.3rem;text-align:right}
+.stick .ht .hb{grid-area:hb;margin-top:6px;height:5px}
+.stick .ht .hs{grid-area:hs;margin-top:4px;font-size:.72rem}
+.stick .ht.dark{grid-template-areas:"hl hv" "hs hs"}
+.stick .ht .hs .btn{font-size:.72rem}
+@media(max-width:700px){
+  .stick .hero3{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .stick .ht.dark{grid-column:auto}
+  .stick .ht{padding:8px 10px;grid-template-columns:minmax(0,1fr);grid-template-areas:"hl" "hv" "hb" "hs"}
+  .stick .ht.dark{grid-template-areas:"hl" "hv" "hs"}
+  .stick .ht .hl{font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stick .ht .hv{font-size:1rem;text-align:left}
+  .stick .ht .hs{display:none}
+}
+.sec{scroll-margin-top:170px}
 [hidden]{display:none!important}
 img{max-width:100%}
 .auth{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;gap:16px}
@@ -1761,20 +1780,20 @@ function heroTiles(){
   const pct=(a,b)=>b>0?Math.max(a>0?2:0,Math.min(100,a/b*100)):0;
   return `<div class="hero3" id="hero">
     <div class="ht dark"><div class="hl">Saldo hoje</div><div class="hv${sd<0?' neg':''}">${brl0(sd)}</div><div class="hs">${n?`<button class="btn ghost small" data-act="go" data-v="detecta" style="padding:0;min-height:0;text-decoration:underline">${n} ${n===1?'item':'itens'} dos extratos para confirmar</button>`:'Tudo confirmado'}</div></div>
-    <div class="ht"><div class="hl">Reserva de emergência</div><div class="hv">${brl0(rs)}</div><div class="hb"><i style="width:${pct(rs,alvoR)}%"></i></div><div class="hs">de ${brl0(alvoR)} (6 meses de custo)</div></div>
+    <div class="ht"><div class="hl"><span class="k-lg">Reserva de emergência</span><span class="k-sm">Reserva</span></div><div class="hv">${brl0(rs)}</div><div class="hb"><i style="width:${pct(rs,alvoR)}%"></i></div><div class="hs">de ${brl0(alvoR)} (6 meses de custo)</div></div>
     <div class="ht"><div class="hl">Meta</div><div class="hv">${ms.length?brl0(mFeito):'—'}</div><div class="hb"><i style="width:${pct(mFeito,mAlvo)}%"></i></div><div class="hs">${ms.length?`de ${brl0(mAlvo)} em ${ms.length} ${ms.length===1?'meta':'metas'}`:'Crie uma em Lançamentos, botão Meta'}</div></div>
   </div>`;
 }
 function topo(){
   const tm=ui.tema||'auto',tb=(v,t)=>`<button type="button" data-act="tema" data-v="${v}" aria-pressed="${tm===v}">${t}</button>`;
   return `<div class="top"><div class="brand">Fôlego</div><div class="row" style="gap:12px"><div class="seg tema" role="group" aria-label="Tema">${tb('claro','Claro')}${tb('escuro','Escuro')}${tb('auto','Auto')}</div><div class="status" id="status">${statusText()}</div><button class="btn ghost small" type="button" data-act="sair" title="${esc(ui.email||'')}">Sair</button></div></div>
-  <div class="stick"><nav class="tabs" aria-label="Painéis">${(S&&semBase()&&!lanc.length?[['calendario','Calendário'],['lancamentos','Lançamentos'],['importar','Importar']]:SECOES).map(s=>`<button class="tab" data-act="go" data-v="${s[0]}">${s[1]}</button>`).join('')}</nav>${kpis()}</div>`;
+  <div class="stick">${heroTiles()}<nav class="tabs" aria-label="Painéis">${(S&&semBase()&&!lanc.length?[['calendario','Calendário'],['lancamentos','Lançamentos'],['importar','Importar']]:SECOES).map(s=>`<button class="tab" data-act="go" data-v="${s[0]}">${s[1]}</button>`).join('')}</nav></div>`;
 }
 function html(){
   if(!S)return topo()+'<div class="card"><p class="muted">Carregando seus dados.</p></div>';
   const M=mdl();
   if(semBase()&&!lanc.length)return topo()+`<div class="page">${secCalendario(M)}${secLancamentos(M)}${secImportar(M)}</div>`;
-  return topo()+heroTiles()+`<div class="page">${secCalendario(M)}${secLancamentos(M)}${secConselhos(M)}${secEvolucao(M)}${secImportar(M)}</div>`;
+  return topo()+`<div class="page">${secCalendario(M)}${secLancamentos(M)}${secConselhos(M)}${secEvolucao(M)}${secImportar(M)}</div>`;
 }
 
 /* ---------- ações que mexem em dinheiro ---------- */
